@@ -1,86 +1,45 @@
-# Job Application Autofill Helper
+# Advanced EDA & Feature Engineering: E-commerce Orders
 
-A small browser extension that fills job application forms from a profile
-and answer bank you save once — on the page **you** opened, only when
-**you** click Fill. It doesn't search LinkedIn, doesn't open postings,
-doesn't click Apply, and doesn't click Submit. Think "password manager
-autofill," not "job-application bot."
+DecodeLabs Data Science Internship, Project 1 (Batch 2026).
 
-## Why this exists, and why it works this way
+A single Python script that turns a raw e-commerce orders table into a
+mathematically clean, ML-ready dataset, using rule-based statistical logic
+rather than guesswork.
 
-Tools that drive a browser through LinkedIn's search → apply → submit flow
-without a human in the loop run into LinkedIn's User Agreement and can get
-accounts restricted. This tool sidesteps that entirely by never automating
-navigation or submission — it's a content-filling assistant that acts only
-on the tab you're already looking at, the same category of tool as a
-browser's built-in autofill or a password manager.
+## Dataset
+`Dataset_for_Data_Analytics.xlsx`: 1,200 orders x 14 columns (order ID, date,
+customer, product, quantity, unit price, payment method, order status,
+coupon code, referral source, total price, etc.).
+Assumed modelling target: `TotalPrice`.
 
-## What it does
+## What the pipeline does
+| Step | Method | Result on this data |
+|---|---|---|
+| Missing values | PDF decision matrix (<5% drop, 5-20% median/mode, >20% KNN) | Only `CouponCode` is missing (25.8%). It is categorical and means "no coupon used", so it is filled with `NONE` rather than KNN |
+| Imputation experiment | Mean vs median vs KNN on 10% artificial gaps in `UnitPrice` | Mean/median (RMSE ~199) beat KNN (~222): `UnitPrice` is uncorrelated with the other columns, so KNN has nothing to learn from |
+| Outliers | IQR (1.5x) and Z-score (>3) | 8 `TotalPrice` outliers by IQR, 0 by Z-score. Winsorized with `np.clip` (no rows lost) and flagged in `IsTotalPriceOutlier` |
+| Feature engineering | 7 new features | `Month`, `DayOfWeek`, `IsWeekend`, `HasCoupon`, `QtyPerCartItem`, `UnitPriceTier`, `CustomerOrderCount` |
+| Encoding | One-hot (`drop_first=True`) | Avoids false ordering between categories |
+| Collinearity | Drop one of each pair with abs(r) > 0.80, keeping the one more correlated with the target | Dropped `HasCoupon` (duplicate of `CouponCode_NONE`) and `UnitPriceTier_low` |
+| Validation | Assertions: no NaN, all numeric, target > 0 | Passed, final shape 1200 x 32 |
 
-- Stores your profile (name, contact info, experience, education, links,
-  work-authorization details, etc.) locally in the browser — never sent
-  anywhere.
-- Stores an **answer bank** of question → answer pairs for the free-text
-  questions that repeat across applications ("Why do you want to work
-  here?").
-- On demand, scans the visible form fields on the current tab, matches
-  them to your profile or answer bank by label text, and fills them.
-- Outlines each field green (filled) or orange (needs your input) so you
-  can review everything before you submit — submission is always your
-  click, not the extension's.
+All transformations are vectorized (pandas/NumPy), with no row-by-row loops.
 
-## What it deliberately does not do
+## Run it
+```bash
+pip install pandas numpy openpyxl      # scikit-learn optional (KNN experiment)
+python project1_pipeline.py Dataset_for_Data_Analytics.xlsx
+```
+Outputs: `cleaned_dataset.csv` and `cleaning_report.md`.
 
-- Does not search or browse job postings for you.
-- Does not open or navigate to any page on its own.
-- Does not click Apply, Next, Continue, or Submit.
-- Does not run unless you click "Fill this page's form" in the popup.
-- Does not send your data anywhere — everything lives in
-  `chrome.storage.local` on your device.
+## Notes and limitations
+- `TotalPrice` equals `Quantity x UnitPrice` in every row, so predicting it from
+  those two columns is trivial. A real project would pick another target.
+- The 8 capped orders look like genuine large purchases, so they are flagged,
+  not deleted.
+- Pandera schemas and a Feast feature store (mentioned in the course slides)
+  are out of scope here; simple assertions are used instead.
 
-## Installing on PC (Chrome, Edge, Brave, or any Chromium browser)
-
-1. Download or clone this repository.
-2. Go to `chrome://extensions` (or `edge://extensions`).
-3. Turn on **Developer mode** (top right).
-4. Click **Load unpacked** and select this folder.
-5. Pin the extension from the puzzle-piece icon for quick access.
-
-## Installing on Android
-
-Manifest V3 extensions need a Chromium engine that supports extensions,
-which stock Chrome for Android does not currently expose. Two browsers
-that do:
-
-**Kiwi Browser** (Chromium-based, supports Chrome extensions):
-1. Install Kiwi Browser from the Play Store.
-2. Open Kiwi → Menu (⋮) → **Extensions**.
-3. Turn on **Developer mode**.
-4. Tap **Load unpacked**, and point it at this folder (you'll need the
-   repo downloaded to your device — e.g. via a Files app after
-   downloading the ZIP from GitHub and extracting it).
-
-**Firefox for Android** (supports a curated set of extensions; loading
-this one unpacked requires `about:debugging` → *This Firefox* → *Load
-Temporary Add-on*, which only lasts the session — Kiwi is the more
-practical option for regular use).
-
-## Using it
-
-1. Open the extension popup and fill in the **Profile** tab once.
-2. Add a few common questions and your answers in the **Answer Bank** tab.
-3. Browse to a job posting and open the application form yourself.
-4. Click the extension icon → **Fill this page's form**.
-5. Review every field — especially anything outlined orange — then submit
-   the form yourself, on the site, as you normally would.
-
-## Contributing
-
-Pull requests welcome, especially for improving field-label matching on
-specific job boards (Workday, Greenhouse, Lever, LinkedIn, etc.) — that
-logic lives in the `FIELD_MAP` array and `labelFor()` function inside
-`popup.js`.
-
-## License
-
-MIT — see `LICENSE`.
+## Built with
+Python, pandas, NumPy, (optional) scikit-learn. Developed entirely on a phone
+using Termux.
