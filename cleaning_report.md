@@ -9,7 +9,11 @@ CouponCode    25.75
 - CouponCode: 25.8% -> categorical & structural; filled 'NONE'
 
 ### Imputation experiment on UnitPrice (10% MCAR injected)
-scikit-learn not installed -> experiment skipped (pip install scikit-learn)
+(scikit-learn not installed: KNN row skipped; pkg install python-scikit-learn)
+| method | RMSE | std after imputing (true std 197.2) |
+|---|---|---|
+| mean | 199.2 | 187.6 |
+| median | 199.1 | 187.6 |
 
 ## 2. Outliers
         col  IQR_low  IQR_high  IQR_out  Z>3  skew

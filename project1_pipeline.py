@@ -66,33 +66,30 @@ df = impute(df)
 
 # ------- Mean vs Median vs KNN experiment (as the PDF conclusion suggests)
 say("\n### Imputation experiment on UnitPrice (10% MCAR injected)")
+rng = np.random.default_rng(42)
+num = df[["Quantity", "ItemsInCart", "UnitPrice"]].astype(float)
+truth = num["UnitPrice"].copy()
+hole = rng.random(len(num)) < 0.10
+holed = num.copy()
+holed.loc[hole, "UnitPrice"] = np.nan
+cands = {
+    "mean": np.full(hole.sum(), holed["UnitPrice"].mean()),
+    "median": np.full(hole.sum(), holed["UnitPrice"].median()),
+}
 try:
     from sklearn.impute import KNNImputer
-    from sklearn.preprocessing import StandardScaler
-    rng = np.random.default_rng(42)
-    num = df[["Quantity", "ItemsInCart", "UnitPrice"]].astype(float)
-    truth = num["UnitPrice"].copy()
-    hole = rng.random(len(num)) < 0.10
-    holed = num.copy()
-    holed.loc[hole, "UnitPrice"] = np.nan
-    scaled = StandardScaler().fit_transform(holed)
-    knn = KNNImputer(n_neighbors=5).fit_transform(scaled)
-    knn_vals = (knn[:, 2] * np.sqrt(StandardScaler().fit(holed).var_[2])
-                + np.nanmean(holed["UnitPrice"]))
-    cands = {
-        "mean": np.full(hole.sum(), holed["UnitPrice"].mean()),
-        "median": np.full(hole.sum(), holed["UnitPrice"].median()),
-        "knn(k=5)": knn_vals[hole],
-    }
-    say("| method | RMSE | std after imputing (true std %.1f) |" % truth.std())
-    say("|---|---|---|")
-    for name, vals in cands.items():
-        filled = truth.copy()
-        filled[hole] = vals
-        rmse = np.sqrt(np.mean((vals - truth[hole]) ** 2))
-        say(f"| {name} | {rmse:.1f} | {filled.std():.1f} |")
+    mu, sd = holed.mean(), holed.std()
+    knn = KNNImputer(n_neighbors=5).fit_transform((holed - mu) / sd)
+    cands["knn(k=5)"] = (knn[:, 2] * sd["UnitPrice"] + mu["UnitPrice"])[hole]
 except ImportError:
-    say("scikit-learn not installed -> experiment skipped (pip install scikit-learn)")
+    say("(scikit-learn not installed: KNN row skipped; pkg install python-scikit-learn)")
+say("| method | RMSE | std after imputing (true std %.1f) |" % truth.std())
+say("|---|---|---|")
+for name, vals in cands.items():
+    filled = truth.copy()
+    filled[hole] = vals
+    rmse = np.sqrt(np.mean((vals - truth[hole]) ** 2))
+    say(f"| {name} | {rmse:.1f} | {filled.std():.1f} |")
 
 # ------------------------------------------------------ 3. OUTLIERS (IQR/Z)
 say("\n## 2. Outliers")

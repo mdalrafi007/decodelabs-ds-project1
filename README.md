@@ -16,7 +16,7 @@ Assumed modelling target: `TotalPrice`.
 | Step | Method | Result on this data |
 |---|---|---|
 | Missing values | PDF decision matrix (<5% drop, 5-20% median/mode, >20% KNN) | Only `CouponCode` is missing (25.8%). It is categorical and means "no coupon used", so it is filled with `NONE` rather than KNN |
-| Imputation experiment | Mean vs median vs KNN on 10% artificial gaps in `UnitPrice` | Mean/median (RMSE ~199) beat KNN (~222): `UnitPrice` is uncorrelated with the other columns, so KNN has nothing to learn from |
+| Imputation experiment | Mean vs median vs KNN on 10% artificial gaps in `UnitPrice` | Mean/median (RMSE ~199) beat KNN (~230): `UnitPrice` is uncorrelated with the other columns, so KNN has nothing to learn from |
 | Outliers | IQR (1.5x) and Z-score (>3) | 8 `TotalPrice` outliers by IQR, 0 by Z-score. Winsorized with `np.clip` (no rows lost) and flagged in `IsTotalPriceOutlier` |
 | Feature engineering | 7 new features | `Month`, `DayOfWeek`, `IsWeekend`, `HasCoupon`, `QtyPerCartItem`, `UnitPriceTier`, `CustomerOrderCount` |
 | Encoding | One-hot (`drop_first=True`) | Avoids false ordering between categories |
@@ -24,6 +24,28 @@ Assumed modelling target: `TotalPrice`.
 | Validation | Assertions: no NaN, all numeric, target > 0 | Passed, final shape 1200 x 32 |
 
 All transformations are vectorized (pandas/NumPy), with no row-by-row loops.
+
+## Documentation summary (project requirements)
+**Missing value strategy.** Rules from the course matrix are coded in `impute()`
+(drop / mean-median / KNN by missingness %). On this dataset only `CouponCode`
+is missing and it is categorical, so it is filled with `NONE`. Mean, median and
+KNN imputation are then compared on `UnitPrice` with 10% artificial gaps:
+
+| method | RMSE | std after imputing (true 197.2) |
+|---|---|---|
+| mean | 199.2 | 187.6 |
+| median | 199.1 | 187.6 |
+| KNN (k=5) | 229.8 | 190.2 |
+
+**Outlier strategy.** IQR (1.5x) and Z-score (>3) are both computed for every
+numeric column. Outliers are winsorized (`np.clip`) to the IQR bounds, so no
+rows are removed, and an `IsTotalPriceOutlier` flag is kept.
+
+**New features.** `Month`, `DayOfWeek`, `IsWeekend`, `HasCoupon` (later dropped
+as collinear), `QtyPerCartItem`, `UnitPriceTier`, `CustomerOrderCount`.
+
+**Final cleaned dataset.** `cleaned_dataset.csv`: 1,200 rows x 32 columns, no
+missing values, all numeric (one-hot encoded), ready for modelling.
 
 ## Run it
 ```bash
