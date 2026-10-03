@@ -16,7 +16,7 @@ Assumed modelling target: `TotalPrice`.
 | Step | Method | Result on this data |
 |---|---|---|
 | Missing values | PDF decision matrix (<5% drop, 5-20% median/mode, >20% KNN) | Only `CouponCode` is missing (25.8%). It is categorical and means "no coupon used", so it is filled with `NONE` rather than KNN |
-| Imputation experiment | Mean vs median vs KNN on 10% artificial gaps in `UnitPrice` | Mean/median (RMSE ~199) beat KNN (~230): `UnitPrice` is uncorrelated with the other columns, so KNN has nothing to learn from |
+| Imputation experiment | Mean vs median vs KNN on 10% artificial gaps in `UnitPrice` | Mean/median (RMSE ~199) beat KNN (~218): `UnitPrice` is uncorrelated with the other columns, so KNN has nothing to learn from |
 | Outliers | IQR (1.5x) and Z-score (>3) | 8 `TotalPrice` outliers by IQR, 0 by Z-score. Winsorized with `np.clip` (no rows lost) and flagged in `IsTotalPriceOutlier` |
 | Feature engineering | 7 new features | `Month`, `DayOfWeek`, `IsWeekend`, `HasCoupon`, `QtyPerCartItem`, `UnitPriceTier`, `CustomerOrderCount` |
 | Encoding | One-hot (`drop_first=True`) | Avoids false ordering between categories |
@@ -35,7 +35,7 @@ KNN imputation are then compared on `UnitPrice` with 10% artificial gaps:
 |---|---|---|
 | mean | 199.2 | 187.6 |
 | median | 199.1 | 187.6 |
-| KNN (k=5) | 229.8 | 190.2 |
+| KNN (k=5) | 217.6 | 189.5 |
 
 **Outlier strategy.** IQR (1.5x) and Z-score (>3) are both computed for every
 numeric column. Outliers are winsorized (`np.clip`) to the IQR bounds, so no
@@ -49,7 +49,7 @@ missing values, all numeric (one-hot encoded), ready for modelling.
 
 ## Run it
 ```bash
-pip install pandas numpy openpyxl      # scikit-learn optional (KNN experiment)
+pip install pandas numpy openpyxl
 python project1_pipeline.py Dataset_for_Data_Analytics.xlsx
 ```
 Outputs: `cleaned_dataset.csv` and `cleaning_report.md`.
@@ -63,5 +63,5 @@ Outputs: `cleaned_dataset.csv` and `cleaning_report.md`.
   are out of scope here; simple assertions are used instead.
 
 ## Built with
-Python, pandas, NumPy, (optional) scikit-learn. Developed entirely on a phone
+Python, pandas, NumPy (KNN imputation written in plain NumPy). Developed entirely on a phone
 using Termux.

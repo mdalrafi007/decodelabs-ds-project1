@@ -5,7 +5,7 @@ Input  : Dataset_for_Data_Analytics.xlsx  (E-commerce orders, 1200 rows)
 Output : cleaned_dataset.csv (ML-ready), cleaning_report.md
 
 Usage  : python project1_pipeline.py [path/to/Dataset_for_Data_Analytics.xlsx]
-Needs  : pandas, numpy, openpyxl  (scikit-learn optional, used only for KNN demo)
+Needs  : pandas, numpy, openpyxl  
 """
 import sys
 import numpy as np
@@ -76,13 +76,16 @@ cands = {
     "mean": np.full(hole.sum(), holed["UnitPrice"].mean()),
     "median": np.full(hole.sum(), holed["UnitPrice"].median()),
 }
-try:
-    from sklearn.impute import KNNImputer
-    mu, sd = holed.mean(), holed.std()
-    knn = KNNImputer(n_neighbors=5).fit_transform((holed - mu) / sd)
-    cands["knn(k=5)"] = (knn[:, 2] * sd["UnitPrice"] + mu["UnitPrice"])[hole]
-except ImportError:
-    say("(scikit-learn not installed: KNN row skipped; pkg install python-scikit-learn)")
+# KNN imputation in plain NumPy (no scikit-learn needed, works in Termux):
+# distance on standardized Quantity & ItemsInCart, average UnitPrice of k=5 neighbours.
+feat = ((num[["Quantity", "ItemsInCart"]] - num[["Quantity", "ItemsInCart"]].mean())
+        / num[["Quantity", "ItemsInCart"]].std()).to_numpy()
+known = np.where(~hole)[0]
+knn_vals = []
+for i in np.where(hole)[0]:       # only the ~120 gap rows are looped
+    d = np.sqrt(((feat[known] - feat[i]) ** 2).sum(axis=1))
+    knn_vals.append(truth.to_numpy()[known[np.argsort(d, kind="stable")[:5]]].mean())
+cands["knn(k=5)"] = np.array(knn_vals)
 say("| method | RMSE | std after imputing (true std %.1f) |" % truth.std())
 say("|---|---|---|")
 for name, vals in cands.items():
